@@ -45,7 +45,7 @@ export const ShopEasy: React.FC = () => {
   // Checkout form state
   const [checkoutData, setCheckoutData] = useState({
     fullName: 'Rahul Sharma',
-    email: 'student@invalid', // Default sample invalid email so students can immediately test
+    email: '',
     address: 'Flat 402, Tech Park Residency',
     city: 'Bengaluru',
     state: 'Karnataka',
@@ -54,7 +54,6 @@ export const ShopEasy: React.FC = () => {
   });
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [addToCartNotice, setAddToCartNotice] = useState<{ id: number; message: string; success: boolean } | null>(null);
 
   // Inspect mode preview highlight
@@ -138,10 +137,10 @@ export const ShopEasy: React.FC = () => {
     if (product.id === 1) {
       setAddToCartNotice({
         id: product.id,
-        message: '⚠️ Cart Mutation Failure: Unable to add "AirPro Wireless ANC Headphones" to bag! Cart count did not update.',
+        message: 'Could not add "AirPro Wireless ANC Headphones" to bag. Please try again.',
         success: false
       });
-      setTimeout(() => setAddToCartNotice(null), 3500);
+      setTimeout(() => setAddToCartNotice(null), 3000);
       return;
     }
 
@@ -355,7 +354,7 @@ export const ShopEasy: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation Bar with BUG 4: Audio tab */}
+          {/* Navigation Bar */}
           <nav className="flex items-center space-x-1 sm:space-x-6 border-t border-neutral-100 py-2.5 overflow-x-auto text-xs sm:text-sm font-medium">
             {['all', 'electronics', 'audio', 'wearables', 'accessories'].map((tab) => {
               const isAudio = tab === 'audio';
@@ -365,21 +364,16 @@ export const ShopEasy: React.FC = () => {
                 <button
                   key={tab}
                   data-nav={tab}
-                  onMouseEnter={(e) => isAudio ? handleInspectHover(e, 'Category Navigation (Audio)', 'nav a[data-nav="audio"]') : undefined}
+                  onMouseEnter={(e) => isAudio ? handleInspectHover(e, 'Navigation Link (Audio)', 'nav a[data-nav="audio"]') : undefined}
                   onMouseLeave={handleInspectLeave}
                   onClick={(e) => handleNavClick(tab, e)}
                   className={`px-3 py-1.5 rounded-lg transition capitalize whitespace-nowrap ${
-                    isAudio && activeNavTab === 'audio'
-                      ? 'bg-rose-100 text-rose-800 border border-rose-300 font-bold'
-                      : isActive
-                        ? 'bg-neutral-900 text-white shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100'
+                    isActive
+                      ? 'bg-neutral-900 text-white shadow-sm'
+                      : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100'
                   }`}
                 >
                   {tab === 'all' ? 'All Products' : tab}
-                  {isAudio && (
-                    <span className="ml-1 text-[11px] text-rose-600 font-bold">⚠️</span>
-                  )}
                 </button>
               );
             })}
@@ -389,146 +383,61 @@ export const ShopEasy: React.FC = () => {
 
       {/* Main Catalog View */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Student Guide / Testing Hints Banner */}
-        <div className="mb-6 bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-xs font-bold">
-                QA
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold text-neutral-950 flex items-center gap-2">
-                  <span>Student Bug Hunter Guide: How to Find the 5 Defects</span>
-                  <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-mono border border-neutral-200">
-                    5 Bugs Total &bull; 20 Pts Each
-                  </span>
-                </h3>
-                <p className="text-[11px] text-neutral-500">
-                  Follow these 5 test steps to reproduce and report each defect:
-                </p>
-              </div>
+        {/* Rules & Submission Guide (No spoilers / no defect locations) */}
+        <div className="mb-6 bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+              ⚡
             </div>
-            <button
-              onClick={() => setIsGuideOpen(!isGuideOpen)}
-              className="text-xs font-semibold text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 transition"
-            >
-              {isGuideOpen ? 'Hide Checklist ▲' : 'Show Testing Checklist ▼'}
-            </button>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-neutral-950">
+                Bug Hunt Pixel2k26 Challenge: ShopEasy India
+              </h3>
+              <p className="text-[11px] text-neutral-500">
+                Explore the shopping website and discover 5 hidden defects. Submit your findings using the top header tools.
+              </p>
+            </div>
           </div>
-
-          {isGuideOpen && (
-            <div className="mt-4 pt-3 border-t border-neutral-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
-                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">1</span>
-                  <span>Bug 1: Search Filter</span>
-                </div>
-                <p className="text-[11px] text-neutral-600">
-                  Type <strong>"AirPro"</strong> into the search bar. Observe that it fails to find matching items and returns 0 products.
-                </p>
-                <span className="text-[10px] text-neutral-400 font-mono block">Target: #shop-search-input</span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
-                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">2</span>
-                  <span>Bug 2: Add to Cart Failure</span>
-                </div>
-                <p className="text-[11px] text-neutral-600">
-                  Click <strong>"Add to Cart"</strong> on Product #1 (AirPro ANC Headphones). Notice it fails and shopping bag count does not increase.
-                </p>
-                <span className="text-[10px] text-neutral-400 font-mono block">Target: .btn-add-to-cart[data-product-id="1"]</span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
-                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">3</span>
-                  <span>Bug 3: Cart Pricing Math</span>
-                </div>
-                <p className="text-[11px] text-neutral-600">
-                  Open <strong>"Bag"</strong>. Check Subtotal + Delivery + GST. Total Payable subtracts delivery fee instead of adding it!
-                </p>
-                <span className="text-[10px] text-neutral-400 font-mono block">Target: #cart-total-price</span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
-                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">4</span>
-                  <span>Bug 4: Broken Navigation</span>
-                </div>
-                <p className="text-[11px] text-neutral-600">
-                  Click the <strong>"Audio ⚠️"</strong> tab in the navigation bar. Notice it triggers a 404 Route Not Found error screen.
-                </p>
-                <span className="text-[10px] text-neutral-400 font-mono block">Target: nav a[data-nav="audio"]</span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
-                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">5</span>
-                  <span>Bug 5: Checkout Email Bypass</span>
-                </div>
-                <p className="text-[11px] text-neutral-600">
-                  Open Checkout and type an invalid email like <strong>student@</strong>. The order is placed without email format validation!
-                </p>
-                <span className="text-[10px] text-neutral-400 font-mono block">Target: #checkout-email-input</span>
-              </div>
-
-              <div className="p-3 bg-neutral-900 text-white rounded-xl space-y-1">
-                <div className="font-bold text-white text-[11px] flex items-center gap-1.5">
-                  <MousePointer className="w-3.5 h-3.5 text-white" />
-                  <span>How to Submit Bugs</span>
-                </div>
-                <p className="text-[11px] text-neutral-300">
-                  Click <strong>"Inspect Bug"</strong> in the top header and click directly on the defective element, or click <strong>"Report Bug"</strong> to select and submit it!
-                </p>
-              </div>
-            </div>
-          )}
+          <div className="flex items-center gap-2 self-start sm:self-auto text-xs">
+            <span className="text-[11px] text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-xl border border-neutral-200 font-mono">
+              Use "Inspect Bug" (point & click) or "+ Report Bug" to submit (+20 pts each)
+            </span>
+          </div>
         </div>
 
-        {/* Banner Alert for Add to Cart feedback (Displays Bug 2 failure clearly!) */}
+        {/* Banner Alert for Add to Cart feedback */}
         {addToCartNotice && (
           <div className={`mb-4 px-4 py-3 rounded-xl border text-xs sm:text-sm flex items-center justify-between transition-all ${
             addToCartNotice.success 
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-              : 'bg-rose-50 border-rose-300 text-rose-800 shadow-sm animate-bounce'
+              : 'bg-neutral-100 border-neutral-200 text-neutral-800'
           }`}>
             <div className="flex items-center gap-2">
-              {addToCartNotice.success ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
+              {addToCartNotice.success ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-neutral-500" />}
               <span className="font-semibold">{addToCartNotice.message}</span>
             </div>
-            {!addToCartNotice.success && (
-              <span className="text-[11px] font-bold text-rose-800 bg-rose-200/80 px-2 py-0.5 rounded font-mono">
-                [Defect BUG-2 Triggered]
-              </span>
-            )}
           </div>
         )}
 
-        {/* BUG 4 VIEW: Audio Navigation Error */}
+        {/* Navigation 404 View */}
         {showNavErrorView ? (
           <div 
-            className="my-12 p-8 bg-rose-50/90 border-2 border-rose-300 rounded-2xl text-center max-w-xl mx-auto shadow-sm"
-            onMouseEnter={(e) => handleInspectHover(e, 'Navigation Broken Route View', '#nav-error-container')}
+            className="my-12 p-8 bg-white border border-neutral-200/90 rounded-2xl text-center max-w-md mx-auto shadow-xs"
+            onMouseEnter={(e) => handleInspectHover(e, 'Navigation Link (Audio)', 'nav a[data-nav="audio"]')}
             onMouseLeave={handleInspectLeave}
-            onClick={(e) => handleInspectClick(e, 'Navigation Broken Route View', 'nav a[data-nav="audio"]', 'navigation')}
+            onClick={(e) => handleInspectClick(e, 'Navigation Link (Audio)', 'nav a[data-nav="audio"]', 'navigation')}
             id="nav-error-container"
           >
-            <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
-              <AlertTriangle className="w-7 h-7" />
+            <div className="w-12 h-12 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold text-rose-950 mb-1">404 — Section Route Not Found</h3>
-            <p className="text-rose-800 text-xs sm:text-sm mb-3">
-              Clicking the "Audio" category link unexpectedly routed to <code className="bg-white px-2 py-0.5 rounded text-rose-900 font-mono text-xs border border-rose-300">/routes/broken-audio-route</code> instead of loading the audio products catalog!
+            <h3 className="text-lg font-bold text-neutral-900 mb-1">404 — Page Not Found</h3>
+            <p className="text-neutral-500 text-xs mb-4">
+              The requested category page could not be located on the server.
             </p>
-            <div className="mb-4">
-              <span className="text-[11px] font-mono bg-white px-3 py-1 rounded-md text-rose-800 border border-rose-200">
-                [Defect BUG-4] Category route target mismatch in TopNavbar.tsx
-              </span>
-            </div>
             <button
               onClick={() => { setShowNavErrorView(false); setSelectedCategory('all'); setActiveNavTab('all'); }}
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition shadow-xs"
             >
               Return to Catalog
             </button>
@@ -571,7 +480,7 @@ export const ShopEasy: React.FC = () => {
                 <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Showing <strong>{filteredProducts.length}</strong> items in catalog</span>
                 {searchQuery && (
-                  <span className="text-[11px] bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 rounded font-mono font-bold">
+                  <span className="text-[11px] bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 rounded font-mono font-medium">
                     Query: "{searchQuery}"
                   </span>
                 )}
@@ -598,35 +507,30 @@ export const ShopEasy: React.FC = () => {
               </div>
             </div>
 
-            {/* BUG 1 VIEW: Search Failure Empty State */}
+            {/* Search Empty State */}
             {filteredProducts.length === 0 ? (
               <div 
-                className="py-14 px-4 text-center bg-rose-50/70 rounded-2xl border-2 border-rose-200 max-w-lg mx-auto"
-                onMouseEnter={(e) => handleInspectHover(e, 'Search Results Container', '#search-empty-results')}
+                className="py-14 px-4 text-center bg-white rounded-2xl border border-neutral-200/90 max-w-md mx-auto shadow-xs"
+                onMouseEnter={(e) => handleInspectHover(e, 'Header Search Bar', '#shop-search-input')}
                 onMouseLeave={handleInspectLeave}
-                onClick={(e) => handleInspectClick(e, 'Search Results Container', '#shop-search-input', 'search')}
+                onClick={(e) => handleInspectClick(e, 'Header Search Bar', '#shop-search-input', 'search')}
                 id="search-empty-results"
               >
-                <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-3 text-rose-600">
+                <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-neutral-400">
                   <Search className="w-6 h-6" />
                 </div>
-                <h4 className="text-base font-bold text-rose-950 mb-1">
-                  Search Error: 0 Products Returned!
+                <h4 className="text-base font-bold text-neutral-900 mb-1">
+                  No products found
                 </h4>
-                <p className="text-xs text-rose-800 max-w-sm mx-auto mb-3">
-                  Searching for <strong className="underline">"{searchQuery}"</strong> returned 0 results, even though matching products exist in the store catalog!
+                <p className="text-xs text-neutral-500 max-w-xs mx-auto mb-4">
+                  We couldn't find any products matching "{searchQuery}". Please check your spelling or try another search keyword.
                 </p>
-                <div className="mb-4">
-                  <span className="text-[11px] font-mono bg-white px-2.5 py-1 rounded-md text-rose-700 border border-rose-200 font-semibold">
-                    [Defect BUG-1] Search filter predicate inversion in HeaderSearch.tsx
-                  </span>
-                </div>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="px-4 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-xs font-semibold text-white rounded-lg shadow-sm transition"
+                    className="px-4 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-xs font-semibold text-white rounded-xl shadow-xs transition"
                   >
-                    Clear Search Query
+                    Clear Search
                   </button>
                 )}
               </div>
@@ -815,23 +719,14 @@ export const ShopEasy: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Arithmetic flaw: Subtotal - Delivery - GST */}
+                {/* Total Payable Summary */}
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center">
                   <span className="font-bold text-xs text-neutral-900">Total Payable:</span>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-rose-700 font-mono line-through mr-2">
-                      {formatINR(expectedCorrectTotal)}
-                    </span>
-                    <span className="text-lg font-black text-neutral-950 font-mono">
-                      {formatINR(calculatedTotal)}
-                    </span>
-                  </div>
+                  <span className="text-base font-extrabold text-neutral-950 font-mono">
+                    {formatINR(calculatedTotal)}
+                  </span>
                 </div>
-
-                {/* Obvious Math Discrepancy Notice for Bug 3 */}
-                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-800 font-mono">
-                  <strong>⚠️ Arithmetic Defect:</strong> Subtotal ({formatINR(cartSubtotal)}) + Delivery ({formatINR(deliveryFee)}) + GST ({formatINR(estimatedGST)}) ≠ Total ({formatINR(calculatedTotal)})! Delivery was deducted.
-                </div>
+                <p className="text-[10px] text-neutral-400">Includes all applicable duties, delivery & taxes</p>
 
                 <button
                   onClick={() => {
@@ -867,19 +762,16 @@ export const ShopEasy: React.FC = () => {
 
             {checkoutSuccess ? (
               <div className="p-8 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
-                  <AlertTriangle className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6" />
                 </div>
-                <h4 className="text-base font-bold text-neutral-950">Order Placed Without Email Format Validation!</h4>
+                <h4 className="text-base font-bold text-neutral-950">Order Confirmed!</h4>
                 <p className="text-xs text-neutral-600">
-                  Order #IND-{Math.floor(100000 + Math.random() * 900000)} was successfully placed despite an invalid email format:
+                  Thank you for your order! Order #IND-{Math.floor(100000 + Math.random() * 900000)} has been placed.
                 </p>
-                <p className="text-xs font-mono text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg max-w-xs mx-auto border border-rose-200 font-bold">
-                  "{checkoutData.email}" (Invalid Email Accepted)
+                <p className="text-xs font-mono text-neutral-700 bg-neutral-100 px-3 py-1.5 rounded-lg max-w-xs mx-auto border border-neutral-200">
+                  Confirmation sent to: {checkoutData.email}
                 </p>
-                <span className="text-[10px] font-mono text-neutral-500 block">
-                  [Defect BUG-5] Email input bypassed RFC format validation
-                </span>
               </div>
             ) : (
               <form onSubmit={handleCheckoutSubmit} className="p-6 space-y-3.5 text-xs">
@@ -908,14 +800,12 @@ export const ShopEasy: React.FC = () => {
                   onMouseLeave={handleInspectLeave}
                   onClick={(e) => handleInspectClick(e, 'Checkout Email Input', '#checkout-email-input', 'form_validation')}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block font-semibold text-neutral-700">Email Address</label>
-                    <span className="text-[10px] text-rose-600 font-medium">Test typing invalid email like "user@" or "test"</span>
-                  </div>
+                  <label className="block font-semibold text-neutral-700 mb-1">Email Address</label>
                   <input
                     id="checkout-email-input"
                     type="text"
-                    placeholder="e.g. rahul@invalid (or test invalid format)"
+                    required
+                    placeholder="e.g. rahul@example.in"
                     value={checkoutData.email}
                     onChange={(e) => setCheckoutData({ ...checkoutData, email: e.target.value })}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-neutral-900 focus:outline-none focus:bg-white focus:border-neutral-900 font-mono"
@@ -966,7 +856,7 @@ export const ShopEasy: React.FC = () => {
                   type="submit"
                   className="w-full py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl font-bold shadow-sm transition"
                 >
-                  Place Order (Test Email Validation)
+                  Place Order
                 </button>
               </form>
             )}

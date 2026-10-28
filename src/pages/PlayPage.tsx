@@ -130,7 +130,7 @@ export const PlayPage: React.FC<PlayPageProps> = ({ teamCode, onNavigate }) => {
             </h3>
             <ul className="space-y-1.5 list-disc list-inside text-neutral-600">
               <li>Challenge: <strong>ShopEasy India E-Commerce Store</strong> (All prices in ₹ INR).</li>
-              <li>There are exactly <strong>5 intentional defects</strong> hidden across search, cart, pricing, navigation, and checkout.</li>
+              <li>There are exactly <strong>5 intentional defects</strong> hidden throughout the shopping experience.</li>
               <li>Each confirmed bug awards <strong>+20 points</strong> (Maximum 100 points).</li>
               <li>Use <strong>"Inspect Bug"</strong> mode to click elements directly, or <strong>"Report Bug"</strong> to describe the flaw manually.</li>
               <li>Submissions are synchronized in real-time across all 4 competing teams.</li>

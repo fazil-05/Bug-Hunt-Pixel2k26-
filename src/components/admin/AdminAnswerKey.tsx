@@ -82,6 +82,17 @@ export const AdminAnswerKey: React.FC = () => {
                       ))}
                     </ol>
                   </div>
+
+                  {bug.explanationPostRound && (
+                    <div className="pt-2 border-t border-neutral-100 bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/60">
+                      <strong className="text-neutral-900 font-semibold block mb-0.5 text-[11px] flex items-center gap-1.5">
+                        <span>📢 Post-Quiz Explanation Script (Explain to Students):</span>
+                      </strong>
+                      <p className="text-neutral-700 leading-relaxed text-[11px] font-mono">
+                        {bug.explanationPostRound}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
