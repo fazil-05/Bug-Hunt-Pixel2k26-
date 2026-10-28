@@ -6,8 +6,6 @@ import {
   Check, 
   AlertTriangle, 
   Package, 
-  CreditCard, 
-  Truck, 
   ShieldCheck, 
   ArrowRight, 
   X, 
@@ -16,13 +14,13 @@ import {
   Trash2, 
   SlidersHorizontal,
   MousePointer,
-  ChevronRight
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { SAMPLE_PRODUCTS } from '../../data/initialData';
 import { ShopProduct, CartItem } from '../../types';
 import { useCompetition } from '../../context/CompetitionContext';
 
-// Helper to format currency in Indian Rupees format (e.g. ₹14,999.00)
 const formatINR = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -46,13 +44,13 @@ export const ShopEasy: React.FC = () => {
 
   // Checkout form state
   const [checkoutData, setCheckoutData] = useState({
-    fullName: '',
-    email: '',
-    address: '',
+    fullName: 'Rahul Sharma',
+    email: 'student@invalid', // Default sample invalid email so students can immediately test
+    address: 'Flat 402, Tech Park Residency',
     city: 'Bengaluru',
     state: 'Karnataka',
     pincode: '560001',
-    paymentMethod: 'UPI / NetBanking'
+    paymentMethod: 'UPI'
   });
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -107,7 +105,7 @@ export const ShopEasy: React.FC = () => {
 
   // ==========================================
   // BUG 1: Search Functionality Error
-  // Inverted predicate causes searches to return empty results!
+  // Intentionally broken: typing ANY search query fails and returns 0 results!
   // ==========================================
   const filteredProducts = useMemo(() => {
     let list = SAMPLE_PRODUCTS;
@@ -117,9 +115,9 @@ export const ShopEasy: React.FC = () => {
     }
 
     if (searchQuery.trim().length > 0) {
-      const q = searchQuery.toLowerCase().trim();
-      // INTENTIONAL BUG 1: Negated predicate filters out real matches
-      list = list.filter(p => !p.name.toLowerCase().includes(q) && p.specs.every(s => !s.toLowerCase().includes(q)));
+      // INTENTIONAL BUG 1: Search logic is completely broken:
+      // When user searches for "AirPro" or any valid item, returns 0 items!
+      return [];
     }
 
     return list;
@@ -135,17 +133,18 @@ export const ShopEasy: React.FC = () => {
       return;
     }
 
-    // INTENTIONAL BUG 2: Swallows state mutation for product #1
+    // INTENTIONAL BUG 2: AirPro ANC Headphones (id: 1) fails to add to bag!
     if (product.id === 1) {
       setAddToCartNotice({
         id: product.id,
-        message: 'Updating shopping bag...',
+        message: '⚠️ Cart Mutation Failure: Unable to add "AirPro Wireless ANC Headphones" to bag! Cart count did not update.',
         success: false
       });
-      setTimeout(() => setAddToCartNotice(null), 2500);
+      setTimeout(() => setAddToCartNotice(null), 3500);
       return;
     }
 
+    // Normal working addition for other products
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -184,7 +183,8 @@ export const ShopEasy: React.FC = () => {
 
   // ==========================================
   // BUG 3: Shopping Cart Price Calculation Arithmetic Error (in INR ₹)
-  // Subtotal is correct, but Total calculates: (Subtotal - Delivery Fee) + GST
+  // Subtotal is correct, but Total calculates: (Subtotal - Delivery Fee) - GST
+  // Producing a glaring arithmetic mismatch!
   // ==========================================
   const cartSubtotal = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -193,12 +193,15 @@ export const ShopEasy: React.FC = () => {
   const deliveryFee = cartItems.length > 0 ? 199.00 : 0.00;
   const estimatedGST = cartItems.length > 0 ? cartSubtotal * 0.18 : 0.00;
 
-  // INTENTIONAL BUG 3: Arithmetic flaw: subtracts delivery fee instead of adding it!
+  // INTENTIONAL BUG 3: Subtracts delivery & GST instead of adding:
+  // e.g. ₹8,999 - ₹199 - ₹1,619.82 = ₹7,180.18 (instead of ₹10,817.82)!
   const calculatedTotal = useMemo(() => {
     if (cartItems.length === 0) return 0;
-    const erroneousTotal = (cartSubtotal - deliveryFee) + estimatedGST;
+    const erroneousTotal = (cartSubtotal - deliveryFee) - estimatedGST;
     return Math.max(0, erroneousTotal);
   }, [cartSubtotal, deliveryFee, estimatedGST, cartItems.length]);
+
+  const expectedCorrectTotal = cartItems.length > 0 ? cartSubtotal + deliveryFee + estimatedGST : 0;
 
   const totalCartCount = useMemo(() => {
     return cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -206,7 +209,7 @@ export const ShopEasy: React.FC = () => {
 
   // ==========================================
   // BUG 4: Navigation Category Link Routing Mismatch
-  // Clicking "Audio" opens 404 Route Not Found error screen
+  // Clicking "Audio" navigates to 404 Route Not Found error screen
   // ==========================================
   const handleNavClick = (tab: string, e: React.MouseEvent) => {
     if (isInspectMode) {
@@ -226,7 +229,7 @@ export const ShopEasy: React.FC = () => {
 
   // ==========================================
   // BUG 5: Checkout Form Email Validation Bypass
-  // Form accepts invalid email like "student@", "broken" without error!
+  // Form accepts invalid email like "student@", "broken" without validation!
   // ==========================================
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +239,7 @@ export const ShopEasy: React.FC = () => {
       return;
     }
 
-    // INTENTIONAL BUG 5: Accepts invalid email format
+    // INTENTIONAL BUG 5: Accepts invalid email format without RFC validation regex!
     if (!checkoutData.email || checkoutData.email.length === 0) {
       setCheckoutError('Email address is required.');
       return;
@@ -248,7 +251,7 @@ export const ShopEasy: React.FC = () => {
       setCartItems([]);
       setIsCheckoutOpen(false);
       setCheckoutSuccess(false);
-    }, 3000);
+    }, 4000);
   };
 
   return (
@@ -317,7 +320,7 @@ export const ShopEasy: React.FC = () => {
                 <input
                   id="shop-search-input"
                   type="text"
-                  placeholder="Search products in store (e.g. AirPro, Watch, Keyboard)..."
+                  placeholder="Search products (Try typing AirPro, Watch, Keyboard)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:bg-white focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all shadow-inner"
@@ -366,15 +369,15 @@ export const ShopEasy: React.FC = () => {
                   onClick={(e) => handleNavClick(tab, e)}
                   className={`px-3 py-1.5 rounded-lg transition capitalize whitespace-nowrap ${
                     isAudio && activeNavTab === 'audio'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300 font-bold'
                       : isActive
                         ? 'bg-neutral-900 text-white shadow-sm'
                         : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100'
                   }`}
                 >
                   {tab === 'all' ? 'All Products' : tab}
-                  {isAudio && activeNavTab === 'audio' && (
-                    <span className="ml-1 text-xs">⚠️</span>
+                  {isAudio && (
+                    <span className="ml-1 text-[11px] text-rose-600 font-bold">⚠️</span>
                   )}
                 </button>
               );
@@ -385,20 +388,20 @@ export const ShopEasy: React.FC = () => {
 
       {/* Main Catalog View */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Banner Alert for Add to Cart feedback */}
+        {/* Banner Alert for Add to Cart feedback (Displays Bug 2 failure clearly!) */}
         {addToCartNotice && (
-          <div className={`mb-4 px-4 py-2.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between transition-all ${
+          <div className={`mb-4 px-4 py-3 rounded-xl border text-xs sm:text-sm flex items-center justify-between transition-all ${
             addToCartNotice.success 
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-              : 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-rose-50 border-rose-300 text-rose-800 shadow-sm animate-bounce'
           }`}>
             <div className="flex items-center gap-2">
-              {addToCartNotice.success ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
-              <span>{addToCartNotice.message}</span>
+              {addToCartNotice.success ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
+              <span className="font-semibold">{addToCartNotice.message}</span>
             </div>
             {!addToCartNotice.success && (
-              <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                Unresponsive Click
+              <span className="text-[11px] font-bold text-rose-800 bg-rose-200/80 px-2 py-0.5 rounded font-mono">
+                [Defect BUG-2 Triggered]
               </span>
             )}
           </div>
@@ -407,19 +410,24 @@ export const ShopEasy: React.FC = () => {
         {/* BUG 4 VIEW: Audio Navigation Error */}
         {showNavErrorView ? (
           <div 
-            className="my-12 p-8 bg-neutral-50 border border-neutral-200 rounded-2xl text-center max-w-xl mx-auto shadow-sm"
+            className="my-12 p-8 bg-rose-50/90 border-2 border-rose-300 rounded-2xl text-center max-w-xl mx-auto shadow-sm"
             onMouseEnter={(e) => handleInspectHover(e, 'Navigation Broken Route View', '#nav-error-container')}
             onMouseLeave={handleInspectLeave}
             onClick={(e) => handleInspectClick(e, 'Navigation Broken Route View', 'nav a[data-nav="audio"]', 'navigation')}
             id="nav-error-container"
           >
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-bold text-neutral-900 mb-1">404 — Section Route Not Found</h3>
-            <p className="text-neutral-600 text-xs sm:text-sm mb-4">
-              The category link routed to <code className="bg-neutral-200 px-2 py-0.5 rounded text-rose-700 font-mono text-xs">/routes/audio-legal-redirect</code> instead of loading the audio catalog!
+            <h3 className="text-xl font-bold text-rose-950 mb-1">404 — Section Route Not Found</h3>
+            <p className="text-rose-800 text-xs sm:text-sm mb-3">
+              Clicking the "Audio" category link unexpectedly routed to <code className="bg-white px-2 py-0.5 rounded text-rose-900 font-mono text-xs border border-rose-300">/routes/broken-audio-route</code> instead of loading the audio products catalog!
             </p>
+            <div className="mb-4">
+              <span className="text-[11px] font-mono bg-white px-3 py-1 rounded-md text-rose-800 border border-rose-200">
+                [Defect BUG-4] Category route target mismatch in TopNavbar.tsx
+              </span>
+            </div>
             <button
               onClick={() => { setShowNavErrorView(false); setSelectedCategory('all'); setActiveNavTab('all'); }}
               className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold transition shadow-sm"
@@ -429,7 +437,7 @@ export const ShopEasy: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Clean Glossy Promo Hero */}
+            {/* Promo Hero */}
             <div className="glass-glossy rounded-2xl p-6 sm:p-8 mb-8 border border-neutral-200/90 shadow-sm relative overflow-hidden">
               <div className="relative z-10 max-w-2xl">
                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-neutral-100 text-neutral-700 border border-neutral-200 mb-2">
@@ -465,7 +473,7 @@ export const ShopEasy: React.FC = () => {
                 <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Showing <strong>{filteredProducts.length}</strong> items in catalog</span>
                 {searchQuery && (
-                  <span className="text-[11px] bg-neutral-100 px-2 py-0.5 rounded text-neutral-800 font-mono">
+                  <span className="text-[11px] bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 rounded font-mono font-bold">
                     Query: "{searchQuery}"
                   </span>
                 )}
@@ -492,28 +500,35 @@ export const ShopEasy: React.FC = () => {
               </div>
             </div>
 
-            {/* Products Grid */}
+            {/* BUG 1 VIEW: Search Failure Empty State */}
             {filteredProducts.length === 0 ? (
               <div 
-                className="py-16 text-center bg-neutral-50/70 rounded-2xl border border-dashed border-neutral-300 max-w-md mx-auto"
+                className="py-14 px-4 text-center bg-rose-50/70 rounded-2xl border-2 border-rose-200 max-w-lg mx-auto"
                 onMouseEnter={(e) => handleInspectHover(e, 'Search Results Container', '#search-empty-results')}
                 onMouseLeave={handleInspectLeave}
                 onClick={(e) => handleInspectClick(e, 'Search Results Container', '#shop-search-input', 'search')}
                 id="search-empty-results"
               >
-                <div className="w-10 h-10 rounded-full bg-neutral-200/70 flex items-center justify-center mx-auto mb-2 text-neutral-500">
-                  <Search className="w-5 h-5" />
+                <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-3 text-rose-600">
+                  <Search className="w-6 h-6" />
                 </div>
-                <h4 className="text-sm font-bold text-neutral-900 mb-1">No products found</h4>
-                <p className="text-xs text-neutral-500 max-w-xs mx-auto mb-3">
-                  {searchQuery ? `No items matched "${searchQuery}". Please check your search query or clear the filter.` : 'No products available in this section.'}
+                <h4 className="text-base font-bold text-rose-950 mb-1">
+                  Search Error: 0 Products Returned!
+                </h4>
+                <p className="text-xs text-rose-800 max-w-sm mx-auto mb-3">
+                  Searching for <strong className="underline">"{searchQuery}"</strong> returned 0 results, even though matching products exist in the store catalog!
                 </p>
+                <div className="mb-4">
+                  <span className="text-[11px] font-mono bg-white px-2.5 py-1 rounded-md text-rose-700 border border-rose-200 font-semibold">
+                    [Defect BUG-1] Search filter predicate inversion in HeaderSearch.tsx
+                  </span>
+                </div>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="px-3 py-1 bg-white hover:bg-neutral-100 text-xs font-semibold text-neutral-800 rounded-lg border border-neutral-200 shadow-sm transition"
+                    className="px-4 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-xs font-semibold text-white rounded-lg shadow-sm transition"
                   >
-                    Clear Filter
+                    Clear Search Query
                   </button>
                 )}
               </div>
@@ -525,7 +540,9 @@ export const ShopEasy: React.FC = () => {
                   return (
                     <div
                       key={product.id}
-                      className="group bg-white rounded-2xl border border-neutral-200/90 hover:border-neutral-300 transition-all duration-200 overflow-hidden flex flex-col shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+                      className={`group bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] ${
+                        isFeaturedBug2Product ? 'border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200/90'
+                      }`}
                     >
                       <div className="relative aspect-4/3 w-full bg-neutral-100 overflow-hidden">
                         <img 
@@ -550,7 +567,7 @@ export const ShopEasy: React.FC = () => {
                           <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
                             {product.category}
                           </span>
-                          <h3 className="font-bold text-sm text-neutral-900 group-hover:text-black line-clamp-1 mb-1">
+                          <h3 className="font-bold text-sm text-neutral-950 group-hover:text-black line-clamp-1 mb-1">
                             {product.name}
                           </h3>
                           <p className="text-xs text-neutral-500 line-clamp-2 mb-3">
@@ -700,15 +717,22 @@ export const ShopEasy: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Arithmetic flaw: (Subtotal - Delivery) + GST */}
+                {/* Arithmetic flaw: Subtotal - Delivery - GST */}
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center">
                   <span className="font-bold text-xs text-neutral-900">Total Payable:</span>
                   <div className="text-right">
-                    <span className="text-base font-extrabold text-neutral-950 font-mono">
+                    <span className="text-base font-extrabold text-rose-700 font-mono line-through mr-2">
+                      {formatINR(expectedCorrectTotal)}
+                    </span>
+                    <span className="text-lg font-black text-neutral-950 font-mono">
                       {formatINR(calculatedTotal)}
                     </span>
-                    <p className="text-[10px] text-neutral-500">Includes all applicable duties & delivery</p>
                   </div>
+                </div>
+
+                {/* Obvious Math Discrepancy Notice for Bug 3 */}
+                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-800 font-mono">
+                  <strong>⚠️ Arithmetic Defect:</strong> Subtotal ({formatINR(cartSubtotal)}) + Delivery ({formatINR(deliveryFee)}) + GST ({formatINR(estimatedGST)}) ≠ Total ({formatINR(calculatedTotal)})! Delivery was deducted.
                 </div>
 
                 <button
@@ -745,16 +769,19 @@ export const ShopEasy: React.FC = () => {
 
             {checkoutSuccess ? (
               <div className="p-8 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
-                  <Check className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-6 h-6" />
                 </div>
-                <h4 className="text-base font-bold text-neutral-950">Order Confirmed!</h4>
+                <h4 className="text-base font-bold text-neutral-950">Order Placed Without Email Format Validation!</h4>
                 <p className="text-xs text-neutral-600">
-                  Order #IND-{Math.floor(100000 + Math.random() * 900000)} created. Confirmation sent to:
+                  Order #IND-{Math.floor(100000 + Math.random() * 900000)} was successfully placed despite an invalid email format:
                 </p>
-                <p className="text-xs font-mono text-neutral-900 bg-neutral-100 px-3 py-1 rounded max-w-xs mx-auto border border-neutral-200">
-                  {checkoutData.email || 'None'}
+                <p className="text-xs font-mono text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg max-w-xs mx-auto border border-rose-200 font-bold">
+                  "{checkoutData.email}" (Invalid Email Accepted)
                 </p>
+                <span className="text-[10px] font-mono text-neutral-500 block">
+                  [Defect BUG-5] Email input bypassed RFC format validation
+                </span>
               </div>
             ) : (
               <form onSubmit={handleCheckoutSubmit} className="p-6 space-y-3.5 text-xs">
@@ -785,15 +812,15 @@ export const ShopEasy: React.FC = () => {
                 >
                   <div className="flex justify-between items-center mb-1">
                     <label className="block font-semibold text-neutral-700">Email Address</label>
-                    <span className="text-[10px] text-neutral-400">Order tracking & invoice</span>
+                    <span className="text-[10px] text-rose-600 font-medium">Test typing invalid email like "user@" or "test"</span>
                   </div>
                   <input
                     id="checkout-email-input"
                     type="text"
-                    placeholder="e.g. rahul@example.in (or test invalid format)"
+                    placeholder="e.g. rahul@invalid (or test invalid format)"
                     value={checkoutData.email}
                     onChange={(e) => setCheckoutData({ ...checkoutData, email: e.target.value })}
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-neutral-900 focus:outline-none focus:bg-white focus:border-neutral-900"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-neutral-900 focus:outline-none focus:bg-white focus:border-neutral-900 font-mono"
                   />
                 </div>
 
@@ -833,7 +860,7 @@ export const ShopEasy: React.FC = () => {
                 </div>
 
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center">
-                  <span className="text-neutral-500 font-medium">Total Payable:</span>
+                  <span className="text-neutral-500 font-medium">Total Charged:</span>
                   <span className="text-sm font-bold text-neutral-950 font-mono">{formatINR(calculatedTotal)}</span>
                 </div>
 
@@ -841,7 +868,7 @@ export const ShopEasy: React.FC = () => {
                   type="submit"
                   className="w-full py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl font-bold shadow-sm transition"
                 >
-                  Place Order
+                  Place Order (Test Email Validation)
                 </button>
               </form>
             )}
