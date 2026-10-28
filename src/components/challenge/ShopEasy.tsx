@@ -54,6 +54,7 @@ export const ShopEasy: React.FC = () => {
   });
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [addToCartNotice, setAddToCartNotice] = useState<{ id: number; message: string; success: boolean } | null>(null);
 
   // Inspect mode preview highlight
@@ -388,6 +389,103 @@ export const ShopEasy: React.FC = () => {
 
       {/* Main Catalog View */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Student Guide / Testing Hints Banner */}
+        <div className="mb-6 bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-xs font-bold">
+                QA
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-bold text-neutral-950 flex items-center gap-2">
+                  <span>Student Bug Hunter Guide: How to Find the 5 Defects</span>
+                  <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-mono border border-neutral-200">
+                    5 Bugs Total &bull; 20 Pts Each
+                  </span>
+                </h3>
+                <p className="text-[11px] text-neutral-500">
+                  Follow these 5 test steps to reproduce and report each defect:
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsGuideOpen(!isGuideOpen)}
+              className="text-xs font-semibold text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 transition"
+            >
+              {isGuideOpen ? 'Hide Checklist ▲' : 'Show Testing Checklist ▼'}
+            </button>
+          </div>
+
+          {isGuideOpen && (
+            <div className="mt-4 pt-3 border-t border-neutral-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">1</span>
+                  <span>Bug 1: Search Filter</span>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Type <strong>"AirPro"</strong> into the search bar. Observe that it fails to find matching items and returns 0 products.
+                </p>
+                <span className="text-[10px] text-neutral-400 font-mono block">Target: #shop-search-input</span>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">2</span>
+                  <span>Bug 2: Add to Cart Failure</span>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Click <strong>"Add to Cart"</strong> on Product #1 (AirPro ANC Headphones). Notice it fails and shopping bag count does not increase.
+                </p>
+                <span className="text-[10px] text-neutral-400 font-mono block">Target: .btn-add-to-cart[data-product-id="1"]</span>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">3</span>
+                  <span>Bug 3: Cart Pricing Math</span>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Open <strong>"Bag"</strong>. Check Subtotal + Delivery + GST. Total Payable subtracts delivery fee instead of adding it!
+                </p>
+                <span className="text-[10px] text-neutral-400 font-mono block">Target: #cart-total-price</span>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">4</span>
+                  <span>Bug 4: Broken Navigation</span>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Click the <strong>"Audio ⚠️"</strong> tab in the navigation bar. Notice it triggers a 404 Route Not Found error screen.
+                </p>
+                <span className="text-[10px] text-neutral-400 font-mono block">Target: nav a[data-nav="audio"]</span>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center">5</span>
+                  <span>Bug 5: Checkout Email Bypass</span>
+                </div>
+                <p className="text-[11px] text-neutral-600">
+                  Open Checkout and type an invalid email like <strong>student@</strong>. The order is placed without email format validation!
+                </p>
+                <span className="text-[10px] text-neutral-400 font-mono block">Target: #checkout-email-input</span>
+              </div>
+
+              <div className="p-3 bg-neutral-900 text-white rounded-xl space-y-1">
+                <div className="font-bold text-white text-[11px] flex items-center gap-1.5">
+                  <MousePointer className="w-3.5 h-3.5 text-white" />
+                  <span>How to Submit Bugs</span>
+                </div>
+                <p className="text-[11px] text-neutral-300">
+                  Click <strong>"Inspect Bug"</strong> in the top header and click directly on the defective element, or click <strong>"Report Bug"</strong> to select and submit it!
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Banner Alert for Add to Cart feedback (Displays Bug 2 failure clearly!) */}
         {addToCartNotice && (
           <div className={`mb-4 px-4 py-3 rounded-xl border text-xs sm:text-sm flex items-center justify-between transition-all ${
