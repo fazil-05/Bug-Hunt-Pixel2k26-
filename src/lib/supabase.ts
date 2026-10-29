@@ -1,7 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const defaultSupabaseUrl = 'https://uifqjmyryzyfmitbvlkl.supabase.co';
+const defaultSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpZnFqbXlyeXp5Zm1pdGJ2bGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxNjIyMjMsImV4cCI6MjEwODczODIyM30._qmoCxCWkVXKl4_DETndO6DDZLaysSi1EP5y2NeND9U';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || defaultSupabaseUrl;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || defaultSupabaseAnonKey;
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
@@ -10,79 +13,143 @@ export const isSupabaseConfigured = Boolean(
   !supabaseUrl.includes('example.com')
 );
 
-// Fallback dummy client if credentials are not filled yet
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       realtime: {
         params: {
-          eventsPerSecond: 10,
+          eventsPerSecond: 15,
         },
       },
     })
   : null;
 
+export interface ArenaBusEvent {
+  type: string;
+  payload: unknown;
+  senderId?: string;
+  timestamp?: number;
+}
+
 /**
- * Cross-window and cross-tab broadcast bus
- * Enables real-time synchronization between Admin and Participant tabs/devices.
+ * Robust Cross-Network and Cross-Device Realtime Bus
+ * Connects Admin and Students worldwide over Supabase WebSockets,
+ * with fallback to local BroadcastChannel and LocalStorage.
  */
 class ArenaBroadcastBus {
-  private channel: BroadcastChannel | null = null;
-  private listeners: Array<(event: { type: string; payload: unknown }) => void> = [];
+  private localChannel: BroadcastChannel | null = null;
+  private supabaseChannel: RealtimeChannel | null = null;
+  private listeners: Array<(event: ArenaBusEvent) => void> = [];
+  private clientId: string = Math.random().toString(36).substring(2, 11);
+  private isSubscribed: boolean = false;
+  private pendingQueue: Array<{ type: string; payload: unknown }> = [];
 
   constructor() {
+    // 1. Local Browser BroadcastChannel (for same browser tabs)
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
-        this.channel = new BroadcastChannel('bug_hunt_arena_realtime_channel');
-        this.channel.onmessage = (e) => {
-          this.notifyListeners(e.data);
+        this.localChannel = new BroadcastChannel('bug_hunt_arena_realtime_channel');
+        this.localChannel.onmessage = (e) => {
+          if (e.data && e.data.senderId !== this.clientId) {
+            this.notifyListeners(e.data);
+          }
         };
       } catch (err) {
         console.warn('BroadcastChannel initialization error:', err);
       }
     }
 
-    // Also listen to storage events as secondary cross-window bridge
+    // 2. Storage event listener (secondary local fallback)
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (e) => {
         if (e.key === 'bug_hunt_arena_sync_event' && e.newValue) {
           try {
             const data = JSON.parse(e.newValue);
-            this.notifyListeners(data);
+            if (data.senderId !== this.clientId) {
+              this.notifyListeners(data);
+            }
           } catch {
             // ignore
           }
         }
       });
     }
+
+    // 3. Supabase Realtime Channel (INTERNET-WIDE SYNCHRONIZATION ACROSS DEVICES & BROWSERS)
+    if (supabase) {
+      try {
+        this.supabaseChannel = supabase.channel('bug_hunt_pixel2k26_arena', {
+          config: {
+            broadcast: { self: false }
+          }
+        });
+
+        this.supabaseChannel.on('broadcast', { event: 'arena-message' }, ({ payload }) => {
+          if (payload && payload.senderId !== this.clientId) {
+            this.notifyListeners(payload as ArenaBusEvent);
+          }
+        });
+
+        this.supabaseChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this.isSubscribed = true;
+            // Flush any pending events queued while connecting
+            while (this.pendingQueue.length > 0) {
+              const item = this.pendingQueue.shift();
+              if (item) this.emit(item.type, item.payload);
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('Supabase Realtime channel setup error:', err);
+      }
+    }
   }
 
   public emit(type: string, payload: unknown) {
-    const message = { type, payload, timestamp: Date.now() };
+    const message: ArenaBusEvent = { 
+      type, 
+      payload, 
+      senderId: this.clientId, 
+      timestamp: Date.now() 
+    };
 
-    // Broadcast channel
-    if (this.channel) {
-      this.channel.postMessage(message);
+    // 1. Broadcast over Supabase Realtime across internet to all devices/browsers
+    if (this.supabaseChannel && this.isSubscribed) {
+      this.supabaseChannel.send({
+        type: 'broadcast',
+        event: 'arena-message',
+        payload: message
+      }).catch(err => {
+        console.warn('Supabase Realtime broadcast error:', err);
+      });
+    } else if (this.supabaseChannel && !this.isSubscribed) {
+      this.pendingQueue.push({ type, payload });
     }
 
-    // Local storage event for cross-browser / cross-tab fallback
+    // 2. Local BroadcastChannel
+    if (this.localChannel) {
+      try {
+        this.localChannel.postMessage(message);
+      } catch {}
+    }
+
+    // 3. Local storage event
     try {
       localStorage.setItem('bug_hunt_arena_sync_event', JSON.stringify(message));
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // Also notify listeners in current window
+    // 4. Local listeners in current window
     this.notifyListeners(message);
   }
 
-  public subscribe(callback: (event: { type: string; payload: unknown }) => void) {
+  public subscribe(callback: (event: ArenaBusEvent) => void) {
     this.listeners.push(callback);
     return () => {
       this.listeners = this.listeners.filter(cb => cb !== callback);
     };
   }
 
-  private notifyListeners(event: { type: string; payload: unknown }) {
+  private notifyListeners(event: ArenaBusEvent) {
     this.listeners.forEach(cb => {
       try {
         cb(event);
@@ -94,4 +161,3 @@ class ArenaBroadcastBus {
 }
 
 export const arenaBus = new ArenaBroadcastBus();
-

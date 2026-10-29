@@ -144,6 +144,14 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const warnedAt60Ref = useRef<boolean>(false);
   const timesUpFiredRef = useRef<boolean>(false);
 
+  // Keep fresh references for event callbacks
+  const roundRef = useRef(round);
+  roundRef.current = round;
+  const teamsRef = useRef(teams);
+  teamsRef.current = teams;
+  const isAdminRef = useRef(isAdminAuthenticated);
+  isAdminRef.current = isAdminAuthenticated;
+
   // Sync state to LocalStorage
   useEffect(() => {
     try {
@@ -169,7 +177,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [submissions]);
 
-  // Real-time Bus listener for cross-tab events
+  // Real-time Bus listener for cross-device, cross-browser, and cross-tab events
   useEffect(() => {
     const unsubscribe = arenaBus.subscribe((event) => {
       if (event.type === 'ROUND_UPDATE') {
@@ -181,6 +189,47 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } else if (event.type === 'NEW_SUBMISSION') {
         const sub = event.payload as Submission;
         setSubmissions(prev => [sub, ...prev.filter(s => s.id !== sub.id)]);
+      } else if (event.type === 'ROUND_PULSE' || event.type === 'STATE_RESPONSE') {
+        // Participant / observer tabs sync state from Admin
+        if (!isAdminRef.current) {
+          const data = event.payload as { round?: CompetitionRound; teams?: Team[] };
+          if (data?.round) {
+            setRound(prev => {
+              if (
+                prev.status !== data.round!.status ||
+                prev.startedAt !== data.round!.startedAt ||
+                prev.pausedAt !== data.round!.pausedAt ||
+                prev.accumulatedPausedDurationMs !== data.round!.accumulatedPausedDurationMs
+              ) {
+                return data.round!;
+              }
+              return prev;
+            });
+          }
+          if (data?.teams && Array.isArray(data.teams) && data.teams.length > 0) {
+            setTeams(data.teams);
+          }
+        }
+      } else if (event.type === 'REQUEST_STATE') {
+        // If current window is Organizer, answer immediately with live state
+        if (isAdminRef.current) {
+          arenaBus.emit('STATE_RESPONSE', {
+            round: roundRef.current,
+            teams: teamsRef.current
+          });
+        }
+      } else if (event.type === 'TEAM_HEARTBEAT') {
+        // Organizer marks remote student team as active online
+        if (isAdminRef.current) {
+          const payload = event.payload as { teamCode?: string };
+          if (payload?.teamCode) {
+            setTeams(prev => prev.map(t => 
+              t.code.toLowerCase() === payload.teamCode!.toLowerCase()
+                ? { ...t, isOnline: true, lastHeartbeat: Date.now() }
+                : t
+            ));
+          }
+        }
       } else if (event.type === 'RESULTS_PUBLISHED') {
         const payload = event.payload as { round: CompetitionRound; teams: Team[] };
         setRound(payload.round);
@@ -192,6 +241,31 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     return unsubscribe;
   }, []);
+
+  // Organizer Periodic Heartbeat Pulse: ensures any student joining late starts automatically
+  useEffect(() => {
+    if (!isAdminAuthenticated) return;
+    const pulseTimer = setInterval(() => {
+      arenaBus.emit('ROUND_PULSE', {
+        round: roundRef.current,
+        teams: teamsRef.current
+      });
+    }, 2000);
+    return () => clearInterval(pulseTimer);
+  }, [isAdminAuthenticated]);
+
+  // Participant / Observer Startup: request initial state from active organizer
+  useEffect(() => {
+    if (!isAdminAuthenticated) {
+      arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
+      const t1 = setTimeout(() => arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() }), 800);
+      const t2 = setTimeout(() => arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() }), 2500);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [isAdminAuthenticated]);
 
   // Synchronized countdown timer
   const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
@@ -688,6 +762,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
       return t;
     }));
+    arenaBus.emit('TEAM_HEARTBEAT', { teamCode });
   }, []);
 
   const loginAdmin = useCallback((passcode: string): boolean => {
