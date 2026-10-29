@@ -81,8 +81,9 @@ class ArenaBroadcastBus {
       try {
         this.supabaseChannel = supabase.channel('bug_hunt_pixel2k26_arena', {
           config: {
-            broadcast: { self: false },
-            presence: { key: this.clientId }
+            broadcast: { self: false, ack: true },
+            presence: { key: this.clientId },
+            private: false
           }
         });
 

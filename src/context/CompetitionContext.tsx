@@ -10,6 +10,7 @@ import {
 import { DEFAULT_TEAMS, DEFAULT_BUGS } from '../data/initialData';
 import { evaluateBugReport, GradeResult } from '../lib/gradingEngine';
 import { arenaBus, extractPresenceData } from '../lib/supabase';
+import { cloudSync } from '../lib/cloudSync';
 import { soundFX } from '../lib/sound';
 import confetti from 'canvas-confetti';
 
@@ -288,16 +289,17 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return unsubscribe;
   }, []);
 
-  // Organizer Periodic Heartbeat Pulse & Server Presence tracking
+  // Organizer Periodic Heartbeat Pulse & Server Presence tracking + Cloud HTTP Relay
   useEffect(() => {
     if (!isAdminAuthenticated) return;
 
-    // Track state on Supabase server cluster immediately
+    // Track state on Supabase server cluster and Cloud HTTP API immediately
     arenaBus.trackPresence({
       round: roundRef.current,
       teams: teamsRef.current,
       timestamp: Date.now()
     });
+    cloudSync.pushState(roundRef.current, teamsRef.current);
 
     const pulseTimer = setInterval(() => {
       arenaBus.emit('ROUND_PULSE', {
@@ -309,12 +311,13 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         teams: teamsRef.current,
         timestamp: Date.now()
       });
+      cloudSync.pushState(roundRef.current, teamsRef.current);
     }, 2000);
 
     return () => clearInterval(pulseTimer);
   }, [isAdminAuthenticated]);
 
-  // Participant / Observer Active Sync: continually polls presence and emits REQUEST_STATE while waiting
+  // Participant / Observer Active Sync: continually polls presence, cloud HTTP relay, and emits REQUEST_STATE
   useEffect(() => {
     if (isAdminAuthenticated) return;
 
@@ -337,7 +340,28 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           setTeams(presenceData.teams);
         }
       }
-      // 2. Broadcast a state request
+
+      // 2. Check Cloud HTTP Relay (Vercel API & KVDB) - guarantees cross-browser sync anywhere in the world!
+      cloudSync.fetchState().then(cloudData => {
+        if (cloudData && cloudData.round && !isAdminRef.current) {
+          setRound(prev => {
+            if (
+              prev.status !== cloudData.round.status ||
+              prev.startedAt !== cloudData.round.startedAt ||
+              prev.pausedAt !== cloudData.round.pausedAt ||
+              prev.accumulatedPausedDurationMs !== cloudData.round.accumulatedPausedDurationMs
+            ) {
+              return cloudData.round;
+            }
+            return prev;
+          });
+          if (cloudData.teams && Array.isArray(cloudData.teams) && cloudData.teams.length > 0) {
+            setTeams(cloudData.teams);
+          }
+        }
+      }).catch(() => {});
+
+      // 3. Broadcast a state request
       arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
     };
 
@@ -348,8 +372,8 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const t3 = setTimeout(syncFromPresenceOrBus, 1500);
     const t4 = setTimeout(syncFromPresenceOrBus, 3000);
 
-    // Continuous poll every 2500ms — covers ALL round states so resets/restarts sync instantly
-    const interval = setInterval(syncFromPresenceOrBus, 2500);
+    // Continuous poll every 2000ms — covers ALL round states so resets/restarts sync instantly
+    const interval = setInterval(syncFromPresenceOrBus, 2000);
 
     return () => {
       clearTimeout(t1);
@@ -487,6 +511,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
       arenaBus.emit('ROUND_UPDATE', updated);
       arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
+      cloudSync.pushState(updated, teamsRef.current);
       return updated;
     });
   }, []);
@@ -502,6 +527,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
       arenaBus.emit('ROUND_UPDATE', updated);
       arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
+      cloudSync.pushState(updated, teamsRef.current);
       return updated;
     });
   }, [round.status]);
@@ -520,6 +546,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
       arenaBus.emit('ROUND_UPDATE', updated);
       arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
+      cloudSync.pushState(updated, teamsRef.current);
       return updated;
     });
   }, [round.status, round.pausedAt]);
@@ -533,6 +560,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
       arenaBus.emit('ROUND_UPDATE', updated);
       arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
+      cloudSync.pushState(updated, teamsRef.current);
       return updated;
     });
     soundFX.playTimesUp();
@@ -569,6 +597,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     arenaBus.emit('TEAMS_UPDATE', freshTeams);
     arenaBus.emit('SUBMISSIONS_UPDATE', []);
     arenaBus.trackPresence({ round: freshRound, teams: freshTeams, timestamp: now });
+    cloudSync.pushState(freshRound, freshTeams);
   }, []);
 
   const publishResults = useCallback(() => {
@@ -584,6 +613,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setRound(updatedRound);
     arenaBus.emit('RESULTS_PUBLISHED', { round: updatedRound, teams });
+    cloudSync.pushState(updatedRound, teams);
     soundFX.playWinnerFanfare();
     confetti({ particleCount: 200, spread: 90, origin: { y: 0.5 } });
   }, [round, teams, leaderboard]);
