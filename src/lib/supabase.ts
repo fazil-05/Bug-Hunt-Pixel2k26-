@@ -232,3 +232,4 @@ export function extractPresenceData(presenceState: Record<string, unknown[]> | n
 
   return result;
 }
+

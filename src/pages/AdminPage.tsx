@@ -37,7 +37,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
 
     const ok = loginAdmin(passcode);
     if (!ok) {
-      setErrorMsg('Incorrect admin passcode. Try "admin123" for competition access.');
+      setErrorMsg('Incorrect admin passcode. Please enter valid organizer credentials.');
     } else {
       setErrorMsg('');
     }
@@ -113,10 +113,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 text-[11px] text-neutral-500 text-center font-mono">
-            Default tournament passcode: <strong className="text-neutral-900">admin123</strong>
-          </div>
         </div>
 
         <footer className="text-center text-xs text-neutral-400 pt-8">
