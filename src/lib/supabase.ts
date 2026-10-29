@@ -17,7 +17,7 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       realtime: {
         params: {
-          eventsPerSecond: 15,
+          eventsPerSecond: 20,
         },
       },
     })
@@ -31,9 +31,10 @@ export interface ArenaBusEvent {
 }
 
 /**
- * Robust Cross-Network and Cross-Device Realtime Bus
- * Connects Admin and Students worldwide over Supabase WebSockets,
- * with fallback to local BroadcastChannel and LocalStorage.
+ * Robust Cross-Network, Cross-Device & Cross-Browser Realtime Bus
+ * Connects Admin and Students worldwide over Supabase WebSockets + Presence.
+ * Uses Supabase Server Presence so late-joining students in any browser
+ * immediately get the running match from the cloud without relying on client-to-client hops.
  */
 class ArenaBroadcastBus {
   private localChannel: BroadcastChannel | null = null;
@@ -42,6 +43,7 @@ class ArenaBroadcastBus {
   private clientId: string = Math.random().toString(36).substring(2, 11);
   private isSubscribed: boolean = false;
   private pendingQueue: Array<{ type: string; payload: unknown }> = [];
+  private currentTrackedState: Record<string, unknown> | null = null;
 
   constructor() {
     // 1. Local Browser BroadcastChannel (for same browser tabs)
@@ -74,35 +76,75 @@ class ArenaBroadcastBus {
       });
     }
 
-    // 3. Supabase Realtime Channel (INTERNET-WIDE SYNCHRONIZATION ACROSS DEVICES & BROWSERS)
+    // 3. Supabase Realtime Channel with Presence & Broadcast
     if (supabase) {
       try {
         this.supabaseChannel = supabase.channel('bug_hunt_pixel2k26_arena', {
           config: {
-            broadcast: { self: false }
+            broadcast: { self: false },
+            presence: { key: this.clientId }
           }
         });
 
+        // Broadcast listener for instant events
         this.supabaseChannel.on('broadcast', { event: 'arena-message' }, ({ payload }) => {
           if (payload && payload.senderId !== this.clientId) {
             this.notifyListeners(payload as ArenaBusEvent);
           }
         });
 
+        // Presence sync listener: server cluster immediately sends state to new subscribers
+        this.supabaseChannel.on('presence', { event: 'sync' }, () => {
+          const state = this.supabaseChannel?.presenceState();
+          if (state) {
+            this.notifyListeners({
+              type: 'PRESENCE_SYNC',
+              payload: state,
+              senderId: 'supabase-presence-server'
+            });
+          }
+        });
+
         this.supabaseChannel.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             this.isSubscribed = true;
+            // If we have state to track, track it on the server
+            if (this.currentTrackedState) {
+              this.supabaseChannel?.track(this.currentTrackedState).catch(() => {});
+            }
             // Flush any pending events queued while connecting
             while (this.pendingQueue.length > 0) {
               const item = this.pendingQueue.shift();
               if (item) this.emit(item.type, item.payload);
             }
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            this.isSubscribed = false;
           }
         });
       } catch (err) {
-        console.warn('Supabase Realtime channel setup error:', err);
+        console.warn('Supabase Realtime setup error:', err);
       }
     }
+  }
+
+  /**
+   * Tracks authoritative state into the Supabase server cluster memory.
+   * Any student connecting now or later receives this state automatically from Supabase.
+   */
+  public trackPresence(state: Record<string, unknown>) {
+    this.currentTrackedState = state;
+    if (this.supabaseChannel && this.isSubscribed) {
+      this.supabaseChannel.track(state).catch(err => {
+        console.warn('Presence track error:', err);
+      });
+    }
+  }
+
+  public getPresenceState(): Record<string, unknown[]> | null {
+    if (this.supabaseChannel) {
+      return this.supabaseChannel.presenceState() as Record<string, unknown[]>;
+    }
+    return null;
   }
 
   public emit(type: string, payload: unknown) {
@@ -161,3 +203,32 @@ class ArenaBroadcastBus {
 }
 
 export const arenaBus = new ArenaBroadcastBus();
+
+/**
+ * Extracts latest round & teams from Supabase Server Presence state dictionary
+ */
+export function extractPresenceData(presenceState: Record<string, unknown[]> | null) {
+  if (!presenceState) return null;
+  let latestTimestamp = 0;
+  let result: { round?: any; teams?: any } | null = null;
+
+  for (const key of Object.keys(presenceState)) {
+    const items = presenceState[key];
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item && typeof item === 'object') {
+          const rec = item as Record<string, any>;
+          if (rec.round && rec.round.status) {
+            const ts = rec.timestamp || (rec.round.startedAt || 1);
+            if (ts >= latestTimestamp) {
+              latestTimestamp = ts;
+              result = { round: rec.round, teams: rec.teams };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}

@@ -9,7 +9,7 @@ import {
 } from '../types';
 import { DEFAULT_TEAMS, DEFAULT_BUGS } from '../data/initialData';
 import { evaluateBugReport, GradeResult } from '../lib/gradingEngine';
-import { arenaBus } from '../lib/supabase';
+import { arenaBus, extractPresenceData } from '../lib/supabase';
 import { soundFX } from '../lib/sound';
 import confetti from 'canvas-confetti';
 
@@ -196,6 +196,27 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } else if (event.type === 'NEW_SUBMISSION') {
         const sub = event.payload as Submission;
         setSubmissions(prev => [sub, ...prev.filter(s => s.id !== sub.id)]);
+      } else if (event.type === 'PRESENCE_SYNC') {
+        // Automatic Server Presence Sync: Supabase server cluster delivers state to student
+        if (!isAdminRef.current) {
+          const syncData = extractPresenceData(event.payload as Record<string, unknown[]>);
+          if (syncData?.round) {
+            setRound(prev => {
+              if (
+                prev.status !== syncData.round.status ||
+                prev.startedAt !== syncData.round.startedAt ||
+                prev.pausedAt !== syncData.round.pausedAt ||
+                prev.accumulatedPausedDurationMs !== syncData.round.accumulatedPausedDurationMs
+              ) {
+                return syncData.round;
+              }
+              return prev;
+            });
+          }
+          if (syncData?.teams && Array.isArray(syncData.teams) && syncData.teams.length > 0) {
+            setTeams(syncData.teams);
+          }
+        }
       } else if (event.type === 'ROUND_PULSE' || event.type === 'STATE_RESPONSE') {
         // Participant / observer tabs sync state from Admin
         if (!isAdminRef.current) {
@@ -224,6 +245,11 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
             round: roundRef.current,
             teams: teamsRef.current
           });
+          arenaBus.trackPresence({
+            round: roundRef.current,
+            teams: teamsRef.current,
+            timestamp: Date.now()
+          });
         }
       } else if (event.type === 'TEAM_HEARTBEAT') {
         // Organizer marks remote student team as active online
@@ -249,29 +275,73 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return unsubscribe;
   }, []);
 
-  // Organizer Periodic Heartbeat Pulse: ensures any student joining late starts automatically
+  // Organizer Periodic Heartbeat Pulse & Server Presence tracking
   useEffect(() => {
     if (!isAdminAuthenticated) return;
+
+    // Track state on Supabase server cluster immediately
+    arenaBus.trackPresence({
+      round: roundRef.current,
+      teams: teamsRef.current,
+      timestamp: Date.now()
+    });
+
     const pulseTimer = setInterval(() => {
       arenaBus.emit('ROUND_PULSE', {
         round: roundRef.current,
         teams: teamsRef.current
       });
+      arenaBus.trackPresence({
+        round: roundRef.current,
+        teams: teamsRef.current,
+        timestamp: Date.now()
+      });
     }, 2000);
+
     return () => clearInterval(pulseTimer);
   }, [isAdminAuthenticated]);
 
-  // Participant / Observer Startup: request initial state from active organizer
+  // Participant / Observer Active Sync: continually polls presence and emits REQUEST_STATE while waiting
   useEffect(() => {
-    if (!isAdminAuthenticated) {
+    if (isAdminAuthenticated) return;
+
+    const syncFromPresenceOrBus = () => {
+      // 1. Check if Supabase Realtime Server Presence has active match
+      const presenceData = extractPresenceData(arenaBus.getPresenceState());
+      if (presenceData?.round && presenceData.round.status !== 'draft') {
+        setRound(prev => {
+          if (prev.status !== presenceData.round.status || prev.startedAt !== presenceData.round.startedAt) {
+            return presenceData.round;
+          }
+          return prev;
+        });
+        if (presenceData.teams && Array.isArray(presenceData.teams)) {
+          setTeams(presenceData.teams);
+        }
+      }
+      // 2. Broadcast a state request
       arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
-      const t1 = setTimeout(() => arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() }), 800);
-      const t2 = setTimeout(() => arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() }), 2500);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
+    };
+
+    // Immediate check on mount
+    syncFromPresenceOrBus();
+
+    // Check at 500ms, 1200ms
+    const t1 = setTimeout(syncFromPresenceOrBus, 500);
+    const t2 = setTimeout(syncFromPresenceOrBus, 1200);
+
+    // Continuous poll every 1500ms while still in draft waiting state
+    const interval = setInterval(() => {
+      if (roundRef.current.status === 'draft') {
+        syncFromPresenceOrBus();
+      }
+    }, 1500);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearInterval(interval);
+    };
   }, [isAdminAuthenticated]);
 
   // Synchronized countdown timer
@@ -395,6 +465,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         accumulatedPausedDurationMs: 0
       };
       arenaBus.emit('ROUND_UPDATE', updated);
+      arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
       return updated;
     });
   }, []);
@@ -409,6 +480,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         pausedAt: now
       };
       arenaBus.emit('ROUND_UPDATE', updated);
+      arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
       return updated;
     });
   }, [round.status]);
@@ -426,17 +498,20 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         accumulatedPausedDurationMs: prev.accumulatedPausedDurationMs + pausedSpan
       };
       arenaBus.emit('ROUND_UPDATE', updated);
+      arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
       return updated;
     });
   }, [round.status, round.pausedAt]);
 
   const endRound = useCallback(() => {
+    const now = Date.now();
     setRound(prev => {
       const updated: CompetitionRound = {
         ...prev,
         status: 'ended'
       };
       arenaBus.emit('ROUND_UPDATE', updated);
+      arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: now });
       return updated;
     });
     soundFX.playTimesUp();
@@ -445,6 +520,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const resetRound = useCallback((newDurationSeconds?: number) => {
     warnedAt60Ref.current = false;
     timesUpFiredRef.current = false;
+    const now = Date.now();
 
     const freshTeams = DEFAULT_TEAMS.map(t => ({
       ...t,
@@ -471,6 +547,7 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     arenaBus.emit('ROUND_UPDATE', freshRound);
     arenaBus.emit('TEAMS_UPDATE', freshTeams);
     arenaBus.emit('SUBMISSIONS_UPDATE', []);
+    arenaBus.trackPresence({ round: freshRound, teams: freshTeams, timestamp: now });
   }, []);
 
   const publishResults = useCallback(() => {

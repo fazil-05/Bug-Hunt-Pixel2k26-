@@ -12,6 +12,7 @@ import { ShopEasy } from '../components/challenge/ShopEasy';
 import { BugReportModal } from '../components/participant/BugReportModal';
 import { SubmissionHistoryDrawer } from '../components/participant/SubmissionHistoryDrawer';
 import { CompetitionCompletionScreen } from '../components/participant/CompetitionCompletionScreen';
+import { arenaBus } from '../lib/supabase';
 
 interface PlayPageProps {
   teamCode: string;
@@ -138,9 +139,19 @@ export const PlayPage: React.FC<PlayPageProps> = ({ teamCode, onNavigate }) => {
             </ul>
           </div>
 
-          <div className="inline-flex items-center gap-2 text-xs text-neutral-500 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Connection active &bull; Waiting for round start signal...</span>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="inline-flex items-center gap-2 text-xs text-neutral-500 font-mono bg-white px-3 py-1.5 rounded-full border border-neutral-200 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span>Cloud Realtime Active &bull; Waiting for round start signal...</span>
+            </div>
+            <button
+              onClick={() => {
+                arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
+              }}
+              className="text-xs font-semibold text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3.5 py-1.5 rounded-full border border-neutral-200 transition shadow-xs"
+            >
+              Refresh Status ↻
+            </button>
           </div>
         </main>
       </div>
