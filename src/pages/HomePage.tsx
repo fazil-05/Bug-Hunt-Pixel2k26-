@@ -17,19 +17,19 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  const { teams } = useCompetition();
+  const { teams, getTeamByCode } = useCompetition();
   const [inputCode, setInputCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleJoinByCode = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = inputCode.trim().toLowerCase();
-    const teamExists = teams.some(t => t.code.toLowerCase() === cleanCode);
+    const foundTeam = getTeamByCode(cleanCode);
 
-    if (teamExists) {
-      onNavigate(`/play/${cleanCode}`);
+    if (foundTeam) {
+      onNavigate(`/play/${foundTeam.code}`);
     } else {
-      setErrorMsg(`No team found with code "${inputCode}". Use alpha, beta, gamma, or delta.`);
+      setErrorMsg(`No team found with code "${inputCode}". Use aries, invictus, atlas, or phoenix.`);
     }
   };
 
@@ -101,7 +101,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               <form onSubmit={handleJoinByCode} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. alpha, beta, gamma, delta"
+                  placeholder="e.g. aries, invictus, atlas, phoenix"
                   value={inputCode}
                   onChange={(e) => {
                     setInputCode(e.target.value);

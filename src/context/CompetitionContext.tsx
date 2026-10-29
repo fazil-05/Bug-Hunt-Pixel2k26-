@@ -114,7 +114,14 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [teams, setTeams] = useState<Team[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.TEAMS);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Auto-migrate if stored teams still use old alpha/beta/gamma/delta codes
+        const hasOldTeams = Array.isArray(parsed) && parsed.some((t: Team) => t.code === 'alpha' || t.name === 'Team Alpha');
+        if (!hasOldTeams && Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
     } catch {
       // ignore
     }
@@ -780,7 +787,14 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const getTeamByCode = useCallback((code: string) => {
-    return teams.find(t => t.code.toLowerCase() === code.toLowerCase());
+    const c = code.toLowerCase().trim();
+    return teams.find(t => 
+      t.code.toLowerCase() === c ||
+      (c === 'alpha' && t.code === 'aries') ||
+      (c === 'beta' && t.code === 'invictus') ||
+      (c === 'gamma' && t.code === 'atlas') ||
+      ((c === 'delta' || c === 'pheonix') && t.code === 'phoenix')
+    );
   }, [teams]);
 
   const value = {

@@ -24,12 +24,13 @@ export const PlayPage: React.FC<PlayPageProps> = ({ teamCode, onNavigate }) => {
     round, 
     submissions, 
     registerHeartbeat, 
-    leaderboard 
+    leaderboard,
+    getTeamByCode 
   } = useCompetition();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const team = teams.find(t => t.code.toLowerCase() === teamCode.toLowerCase());
+  const team = getTeamByCode(teamCode);
 
   useEffect(() => {
     if (team) {

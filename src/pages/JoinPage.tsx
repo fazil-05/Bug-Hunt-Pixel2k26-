@@ -18,7 +18,7 @@ interface JoinPageProps {
 }
 
 export const JoinPage: React.FC<JoinPageProps> = ({ onNavigate }) => {
-  const { teams } = useCompetition();
+  const { teams, getTeamByCode } = useCompetition();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [customCode, setCustomCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -36,12 +36,12 @@ export const JoinPage: React.FC<JoinPageProps> = ({ onNavigate }) => {
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = customCode.trim().toLowerCase();
-    const exists = teams.some(t => t.code.toLowerCase() === clean);
+    const foundTeam = getTeamByCode(clean);
 
-    if (exists) {
-      onNavigate(`/play/${clean}`);
+    if (foundTeam) {
+      onNavigate(`/play/${foundTeam.code}`);
     } else {
-      setErrorMsg(`Code "${customCode}" is not registered. Choose from alpha, beta, gamma, or delta.`);
+      setErrorMsg(`Code "${customCode}" is not registered. Choose from aries, invictus, atlas, or phoenix.`);
     }
   };
 
@@ -154,7 +154,7 @@ export const JoinPage: React.FC<JoinPageProps> = ({ onNavigate }) => {
           <form onSubmit={handleCustomSubmit} className="flex gap-2">
             <input
               type="text"
-              placeholder="e.g. alpha"
+              placeholder="e.g. aries, invictus, atlas, phoenix"
               value={customCode}
               onChange={(e) => {
                 setCustomCode(e.target.value);

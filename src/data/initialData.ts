@@ -127,9 +127,9 @@ export const DEFAULT_BUGS: BugDefinition[] = [
 
 export const DEFAULT_TEAMS: Team[] = [
   {
-    id: 'team-alpha',
-    code: 'alpha',
-    name: 'Team Alpha',
+    id: 'team-aries',
+    code: 'aries',
+    name: 'Team Aries',
     color: '#0f172a', // Deep Obsidian Black
     accentBg: '#f1f5f9',
     avatarIcon: 'Rocket',
@@ -142,26 +142,11 @@ export const DEFAULT_TEAMS: Team[] = [
     lastHeartbeat: Date.now()
   },
   {
-    id: 'team-beta',
-    code: 'beta',
-    name: 'Team Beta',
+    id: 'team-invictus',
+    code: 'invictus',
+    name: 'Team Invictus',
     color: '#334155', // Slate
     accentBg: '#f8fafc',
-    avatarIcon: 'Zap',
-    score: 0,
-    bugsIdentified: [],
-    incorrectSubmissionsCount: 0,
-    lastSubmissionTimestamp: null,
-    completionTimeSeconds: null,
-    isOnline: true,
-    lastHeartbeat: Date.now()
-  },
-  {
-    id: 'team-gamma',
-    code: 'gamma',
-    name: 'Team Gamma',
-    color: '#18181b', // Zinc Black
-    accentBg: '#f4f4f5',
     avatarIcon: 'ShieldAlert',
     score: 0,
     bugsIdentified: [],
@@ -172,9 +157,24 @@ export const DEFAULT_TEAMS: Team[] = [
     lastHeartbeat: Date.now()
   },
   {
-    id: 'team-delta',
-    code: 'delta',
-    name: 'Team Delta',
+    id: 'team-atlas',
+    code: 'atlas',
+    name: 'Team Atlas',
+    color: '#18181b', // Zinc Black
+    accentBg: '#f4f4f5',
+    avatarIcon: 'Zap',
+    score: 0,
+    bugsIdentified: [],
+    incorrectSubmissionsCount: 0,
+    lastSubmissionTimestamp: null,
+    completionTimeSeconds: null,
+    isOnline: true,
+    lastHeartbeat: Date.now()
+  },
+  {
+    id: 'team-phoenix',
+    code: 'phoenix',
+    name: 'Team Phoenix',
     color: '#27272a', // Charcoal
     accentBg: '#fafafa',
     avatarIcon: 'Flame',
