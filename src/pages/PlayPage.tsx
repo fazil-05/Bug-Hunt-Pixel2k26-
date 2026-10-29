@@ -4,7 +4,9 @@ import {
   Clock, 
   AlertCircle, 
   Trophy, 
-  Sparkles
+  Sparkles,
+  Play,
+  RotateCcw
 } from 'lucide-react';
 import { useCompetition } from '../context/CompetitionContext';
 import { ParticipantHeader } from '../components/participant/ParticipantHeader';
@@ -26,7 +28,8 @@ export const PlayPage: React.FC<PlayPageProps> = ({ teamCode, onNavigate }) => {
     submissions, 
     registerHeartbeat, 
     leaderboard,
-    getTeamByCode 
+    getTeamByCode,
+    startRound
   } = useCompetition();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -140,18 +143,26 @@ export const PlayPage: React.FC<PlayPageProps> = ({ teamCode, onNavigate }) => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <div className="inline-flex items-center gap-2 text-xs text-neutral-500 font-mono bg-white px-3 py-1.5 rounded-full border border-neutral-200 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>Cloud Realtime Active &bull; Waiting for round start signal...</span>
-            </div>
+            <button
+              onClick={() => startRound()}
+              className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-white" />
+              <span>Start Challenge Now</span>
+            </button>
             <button
               onClick={() => {
                 arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
               }}
-              className="text-xs font-semibold text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3.5 py-1.5 rounded-full border border-neutral-200 transition shadow-xs"
+              className="text-xs font-semibold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 px-3.5 py-2.5 rounded-xl border border-neutral-200 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
-              Refresh Status ↻
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Refresh Status ↻</span>
             </button>
+          </div>
+          <div className="inline-flex items-center gap-2 text-[11px] text-neutral-400 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span>Cloud Realtime Active &bull; Click "Start Challenge Now" or wait for organizer</span>
           </div>
         </main>
       </div>

@@ -308,14 +308,19 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const syncFromPresenceOrBus = () => {
       // 1. Check if Supabase Realtime Server Presence has active match
       const presenceData = extractPresenceData(arenaBus.getPresenceState());
-      if (presenceData?.round && presenceData.round.status !== 'draft') {
+      if (presenceData?.round) {
         setRound(prev => {
-          if (prev.status !== presenceData.round.status || prev.startedAt !== presenceData.round.startedAt) {
+          if (
+            prev.status !== presenceData.round.status ||
+            prev.startedAt !== presenceData.round.startedAt ||
+            prev.pausedAt !== presenceData.round.pausedAt ||
+            prev.accumulatedPausedDurationMs !== presenceData.round.accumulatedPausedDurationMs
+          ) {
             return presenceData.round;
           }
           return prev;
         });
-        if (presenceData.teams && Array.isArray(presenceData.teams)) {
+        if (presenceData.teams && Array.isArray(presenceData.teams) && presenceData.teams.length > 0) {
           setTeams(presenceData.teams);
         }
       }
@@ -326,20 +331,18 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Immediate check on mount
     syncFromPresenceOrBus();
 
-    // Check at 500ms, 1200ms
-    const t1 = setTimeout(syncFromPresenceOrBus, 500);
-    const t2 = setTimeout(syncFromPresenceOrBus, 1200);
+    // Check at 300ms, 800ms, 1500ms
+    const t1 = setTimeout(syncFromPresenceOrBus, 300);
+    const t2 = setTimeout(syncFromPresenceOrBus, 800);
+    const t3 = setTimeout(syncFromPresenceOrBus, 1500);
 
-    // Continuous poll every 1500ms while still in draft waiting state
-    const interval = setInterval(() => {
-      if (roundRef.current.status === 'draft') {
-        syncFromPresenceOrBus();
-      }
-    }, 1500);
+    // Continuous poll every 2000ms so any admin action (start, pause, reset) syncs immediately
+    const interval = setInterval(syncFromPresenceOrBus, 2000);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
       clearInterval(interval);
     };
   }, [isAdminAuthenticated]);
@@ -375,11 +378,16 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (remaining === 0 && !timesUpFiredRef.current) {
           timesUpFiredRef.current = true;
           soundFX.playTimesUp();
-          setRound(prev => {
-            const updated: CompetitionRound = { ...prev, status: 'ended' };
-            arenaBus.emit('ROUND_UPDATE', updated);
-            return updated;
-          });
+          if (isAdminRef.current) {
+            setRound(prev => {
+              const updated: CompetitionRound = { ...prev, status: 'ended' };
+              arenaBus.emit('ROUND_UPDATE', updated);
+              arenaBus.trackPresence({ round: updated, teams: teamsRef.current, timestamp: Date.now() });
+              return updated;
+            });
+          } else {
+            setRound(prev => ({ ...prev, status: 'ended' }));
+          }
         }
       } else if (round.status === 'paused' && round.startedAt && round.pausedAt) {
         const elapsed = round.pausedAt - round.startedAt - round.accumulatedPausedDurationMs;

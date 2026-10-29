@@ -3,7 +3,9 @@ import {
   Trophy, 
   Clock, 
   CheckCircle2, 
-  Award
+  Award,
+  RotateCcw,
+  Play
 } from 'lucide-react';
 import { useCompetition } from '../../context/CompetitionContext';
 import { Team } from '../../types';
@@ -14,7 +16,7 @@ interface CompetitionCompletionScreenProps {
 }
 
 export const CompetitionCompletionScreen: React.FC<CompetitionCompletionScreenProps> = ({ team }) => {
-  const { round, leaderboard } = useCompetition();
+  const { round, leaderboard, resetRound, startRound } = useCompetition();
 
   const isPublished = round.status === 'published';
   const winner = leaderboard[0];
@@ -62,6 +64,27 @@ export const CompetitionCompletionScreen: React.FC<CompetitionCompletionScreenPr
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-500">
               <span className="w-2 h-2 rounded-full bg-neutral-900 animate-ping" />
               <span>Waiting for organizer to publish tournament standings...</span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+              <button
+                onClick={() => {
+                  resetRound();
+                  startRound();
+                }}
+                className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Start New Round</span>
+              </button>
+              <button
+                onClick={() => {
+                  window.location.reload();
+                }}
+                className="px-3.5 py-2 bg-white hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-semibold border border-neutral-200 transition shadow-xs cursor-pointer"
+              >
+                Sync with Admin ↻
+              </button>
             </div>
           </div>
         ) : (

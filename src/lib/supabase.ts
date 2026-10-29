@@ -209,6 +209,19 @@ export const arenaBus = new ArenaBroadcastBus();
  */
 export function extractPresenceData(presenceState: Record<string, unknown[]> | null) {
   if (!presenceState) return null;
+
+  // First priority: check authoritative admin-organizer presence
+  if (presenceState['admin-organizer'] && Array.isArray(presenceState['admin-organizer'])) {
+    const adminItems = presenceState['admin-organizer'];
+    for (let i = adminItems.length - 1; i >= 0; i--) {
+      const item = adminItems[i] as Record<string, any>;
+      if (item && item.round && item.round.status) {
+        return { round: item.round, teams: item.teams };
+      }
+    }
+  }
+
+  // Second priority: iterate through all keys and find most recent state
   let latestTimestamp = 0;
   let result: { round?: any; teams?: any } | null = null;
 
@@ -219,7 +232,7 @@ export function extractPresenceData(presenceState: Record<string, unknown[]> | n
         if (item && typeof item === 'object') {
           const rec = item as Record<string, any>;
           if (rec.round && rec.round.status) {
-            const ts = rec.timestamp || (rec.round.startedAt || 1);
+            const ts = Number(rec.timestamp) || (rec.round.startedAt ? Number(rec.round.startedAt) : 1);
             if (ts >= latestTimestamp) {
               latestTimestamp = ts;
               result = { round: rec.round, teams: rec.teams };
