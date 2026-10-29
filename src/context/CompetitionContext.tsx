@@ -95,35 +95,43 @@ const DEFAULT_ROUND: CompetitionRound = {
 const CompetitionContext = createContext<CompetitionContextType | null>(null);
 
 export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Students ALWAYS start from DEFAULT_ROUND (draft) so cloud presence immediately overwrites it.
+  // Admins load their saved state from localStorage so the admin dashboard remembers its last status.
   const [round, setRound] = useState<CompetitionRound>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ROUND);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.title && parsed.title.includes('Bug Hunt Arena')) {
-          parsed.title = parsed.title.replace(/Bug Hunt Arena/g, 'Bug Hunt Pixel2k26');
+    const isAdmin = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH) === 'true';
+    if (isAdmin) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.ROUND);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.title && parsed.title.includes('Bug Hunt Arena')) {
+            parsed.title = parsed.title.replace(/Bug Hunt Arena/g, 'Bug Hunt Pixel2k26');
+          }
+          return parsed;
         }
-        return parsed;
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
     return DEFAULT_ROUND;
   });
 
   const [teams, setTeams] = useState<Team[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.TEAMS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Auto-migrate if stored teams still use old alpha/beta/gamma/delta codes
-        const hasOldTeams = Array.isArray(parsed) && parsed.some((t: Team) => t.code === 'alpha' || t.name === 'Team Alpha');
-        if (!hasOldTeams && Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+    const isAdmin = localStorage.getItem(STORAGE_KEYS.ADMIN_AUTH) === 'true';
+    if (isAdmin) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.TEAMS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // Auto-migrate if stored teams still use old alpha/beta/gamma/delta codes
+          const hasOldTeams = Array.isArray(parsed) && parsed.some((t: Team) => t.code === 'alpha' || t.name === 'Team Alpha');
+          if (!hasOldTeams && Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
     return DEFAULT_TEAMS;
   });
@@ -159,22 +167,24 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const isAdminRef = useRef(isAdminAuthenticated);
   isAdminRef.current = isAdminAuthenticated;
 
-  // Sync state to LocalStorage
+  // Sync state to LocalStorage — only for admin, so students always get fresh cloud state on load
   useEffect(() => {
+    if (!isAdminAuthenticated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.ROUND, JSON.stringify(round));
     } catch {
       // ignore
     }
-  }, [round]);
+  }, [round, isAdminAuthenticated]);
 
   useEffect(() => {
+    if (!isAdminAuthenticated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
     } catch {
       // ignore
     }
-  }, [teams]);
+  }, [teams, isAdminAuthenticated]);
 
   useEffect(() => {
     try {
@@ -188,6 +198,8 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     const unsubscribe = arenaBus.subscribe((event) => {
       if (event.type === 'ROUND_UPDATE') {
+        // Students accept any ROUND_UPDATE unconditionally (admin is authority)
+        // Admin should only accept if it came from itself (local) – senderId check is done in arenaBus
         setRound(event.payload as CompetitionRound);
       } else if (event.type === 'TEAMS_UPDATE') {
         setTeams(event.payload as Team[]);
@@ -197,23 +209,22 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const sub = event.payload as Submission;
         setSubmissions(prev => [sub, ...prev.filter(s => s.id !== sub.id)]);
       } else if (event.type === 'PRESENCE_SYNC') {
-        // Automatic Server Presence Sync: Supabase server cluster delivers state to student
-        if (!isAdminRef.current) {
-          const syncData = extractPresenceData(event.payload as Record<string, unknown[]>);
-          if (syncData?.round) {
-            setRound(prev => {
-              if (
-                prev.status !== syncData.round.status ||
-                prev.startedAt !== syncData.round.startedAt ||
-                prev.pausedAt !== syncData.round.pausedAt ||
-                prev.accumulatedPausedDurationMs !== syncData.round.accumulatedPausedDurationMs
-              ) {
-                return syncData.round;
-              }
-              return prev;
-            });
-          }
-          if (syncData?.teams && Array.isArray(syncData.teams) && syncData.teams.length > 0) {
+        // Automatic Server Presence Sync: Supabase server cluster delivers state to ALL clients
+        const syncData = extractPresenceData(event.payload as Record<string, unknown[]>);
+        if (syncData?.round && !isAdminRef.current) {
+          setRound(prev => {
+            // Always accept if status changed or timestamps differ
+            if (
+              prev.status !== syncData.round.status ||
+              prev.startedAt !== syncData.round.startedAt ||
+              prev.pausedAt !== syncData.round.pausedAt ||
+              prev.accumulatedPausedDurationMs !== syncData.round.accumulatedPausedDurationMs
+            ) {
+              return syncData.round;
+            }
+            return prev;
+          });
+          if (syncData.teams && Array.isArray(syncData.teams) && syncData.teams.length > 0) {
             setTeams(syncData.teams);
           }
         }
@@ -267,8 +278,10 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const payload = event.payload as { round: CompetitionRound; teams: Team[] };
         setRound(payload.round);
         setTeams(payload.teams);
-        soundFX.playWinnerFanfare();
-        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+        if (!isAdminRef.current) {
+          soundFX.playWinnerFanfare();
+          confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+        }
       }
     });
 
@@ -328,21 +341,21 @@ export const CompetitionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       arenaBus.emit('REQUEST_STATE', { timestamp: Date.now() });
     };
 
-    // Immediate check on mount
+    // Immediate check on mount, then staggered checks
     syncFromPresenceOrBus();
-
-    // Check at 300ms, 800ms, 1500ms
     const t1 = setTimeout(syncFromPresenceOrBus, 300);
     const t2 = setTimeout(syncFromPresenceOrBus, 800);
     const t3 = setTimeout(syncFromPresenceOrBus, 1500);
+    const t4 = setTimeout(syncFromPresenceOrBus, 3000);
 
-    // Continuous poll every 2000ms so any admin action (start, pause, reset) syncs immediately
-    const interval = setInterval(syncFromPresenceOrBus, 2000);
+    // Continuous poll every 2500ms — covers ALL round states so resets/restarts sync instantly
+    const interval = setInterval(syncFromPresenceOrBus, 2500);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(t4);
       clearInterval(interval);
     };
   }, [isAdminAuthenticated]);

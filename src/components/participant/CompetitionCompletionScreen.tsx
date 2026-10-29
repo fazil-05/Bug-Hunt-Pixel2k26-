@@ -3,9 +3,7 @@ import {
   Trophy, 
   Clock, 
   CheckCircle2, 
-  Award,
-  RotateCcw,
-  Play
+  Award
 } from 'lucide-react';
 import { useCompetition } from '../../context/CompetitionContext';
 import { Team } from '../../types';
@@ -16,7 +14,7 @@ interface CompetitionCompletionScreenProps {
 }
 
 export const CompetitionCompletionScreen: React.FC<CompetitionCompletionScreenProps> = ({ team }) => {
-  const { round, leaderboard, resetRound, startRound } = useCompetition();
+  const { round, leaderboard } = useCompetition();
 
   const isPublished = round.status === 'published';
   const winner = leaderboard[0];
@@ -27,7 +25,7 @@ export const CompetitionCompletionScreen: React.FC<CompetitionCompletionScreenPr
     <div className="min-h-[85vh] flex flex-col items-center justify-center p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="w-full bg-white border border-neutral-200/90 rounded-3xl p-6 sm:p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] relative overflow-hidden">
         {!isPublished ? (
-          /* STAGE 1: TIME'S UP WAITING SCREEN */
+          /* STAGE 1: TIME'S UP — WAITING FOR ORGANIZER TO PUBLISH */
           <div className="text-center py-8 space-y-5">
             <div className="w-16 h-16 rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center mx-auto text-neutral-800 shadow-xs">
               <Clock className="w-8 h-8 animate-pulse" />
@@ -61,30 +59,10 @@ export const CompetitionCompletionScreen: React.FC<CompetitionCompletionScreenPr
               </div>
             </div>
 
+            {/* Students wait — no admin buttons here */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-500">
               <span className="w-2 h-2 rounded-full bg-neutral-900 animate-ping" />
               <span>Waiting for organizer to publish tournament standings...</span>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
-              <button
-                onClick={() => {
-                  resetRound();
-                  startRound();
-                }}
-                className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Start New Round</span>
-              </button>
-              <button
-                onClick={() => {
-                  window.location.reload();
-                }}
-                className="px-3.5 py-2 bg-white hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-semibold border border-neutral-200 transition shadow-xs cursor-pointer"
-              >
-                Sync with Admin ↻
-              </button>
             </div>
           </div>
         ) : (
